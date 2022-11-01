@@ -2,8 +2,6 @@ package multisig
 
 import (
 	"std"
-
-	std "github.com/gnolang/gno/stdlibs/stdshim"
 )
 
 // MULTI SIG DATA TYPES
