@@ -31,8 +31,8 @@ type Proposal struct {
 }
 
 type Quorum struct {
-	members []std.Address // members of the quorum
-	ratio   float64       // approval ratio of the quorum
+	members     []std.Address // members of the quorum
+	minApproval uint64        // approval ratio of the quorum
 }
 
 // MULTI SIG STATE
@@ -115,7 +115,7 @@ func Approve(proposalId uint64, execute bool) {
 		timestamp: 0, // TODO: set from block timestamp
 	})
 
-	if float64(quorum.members)*float64(quorum.ratio) >= float64(len(proposal.Approvals)) {
+	if len(proposal.Approvals) >= int(quorum.minApproval) {
 		if execute { // if current quorum is reached after this vote on the proposal and execute is true, execute the proposal
 			Execute(proposalId)
 		} else { // if current quorum is reached after this vote on the proposal and execute is false, set proposal to TO_EXECUTE
@@ -157,13 +157,13 @@ func Execute(proposalId uint64) {
 	proposals[proposalId].status = EXECUTED
 }
 
-func updateQuorum(addresses []std.Address, ratio float64) {
+func updateQuorum(addresses []std.Address, minApproval uint64) {
 	// TODO: if sender is not the multisig calling itself, revert
 
 	// Update the current quorum
 	// Note: to update the quorum, users have to make a proposal with rawTx calling this internal func
 	quorum.members = addresses
-	quorum.ratio = ratio
+	quorum.minApproval = minApproval
 }
 
 // // query
