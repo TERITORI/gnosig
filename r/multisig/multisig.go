@@ -2,6 +2,7 @@ package multisig
 
 import (
 	"std"
+	"time"
 )
 
 // MULTI SIG DATA TYPES
@@ -66,7 +67,10 @@ func CreateProposal(title, description string, rawTx []Msg, expirationTimestamp 
 		panic("caller is not a multisig member")
 	}
 
-	// TODO: if expirationTimestamp is already reached, panic
+	// if expirationTimestamp is already reached, panic
+	if time.Now().Unix() > int64(expirationTimestamp) {
+		panic("expiration time already passed")
+	}
 
 	// Create a proposal for the quorum and add it to the proposals array
 	proposalId := uint64(len(proposals))
@@ -106,13 +110,16 @@ func Approve(proposalId uint64, execute bool) {
 		}
 	}
 
-	// TODO: if proposal expiration time is reached, set proposal as EXPIRED
-	proposals[proposalId].status = EXPIRED
+	// if proposal expiration time is reached, set proposal as EXPIRED
+	if time.Now().Unix() > int64(proposal.Expiration) {
+		proposals[proposalId].status = EXPIRED
+		return
+	}
 
 	// Create an approval in a the specified proposal
 	proposals[proposalId].Approvals = append(proposal.Approvals, Approval{
 		address:   caller,
-		timestamp: 0, // TODO: set from block timestamp
+		timestamp: uint64(time.Now().Unix()),
 	})
 
 	if len(proposal.Approvals) >= int(quorum.minApproval) {
@@ -148,8 +155,11 @@ func Execute(proposalId uint64) {
 		panic("caller is not a multisig member")
 	}
 
-	// TODO: if expiration time is reached, set proposal as CANCELLED
-	proposals[proposalId].status = CANCELLED
+	// if expiration time is reached, set proposal as CANCELLED
+	if time.Now().Unix() > int64(proposal.Expiration) {
+		proposals[proposalId].status = CANCELLED
+		return
+	}
 
 	// TODO: Execute an approved tx
 
