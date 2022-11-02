@@ -176,36 +176,20 @@ func updateQuorum(addresses []std.Address, minApproval uint64) {
 	quorum.minApproval = minApproval
 }
 
-// // query
-// 	/// Return ThresholdResponse
-//     Threshold {},
-//     /// Returns ProposalResponse
-//     Proposal { proposal_id: u64 },
-//     /// Returns ProposalListResponse
-//     ListProposals {
-//         start_after: Option<u64>,
-//         limit: Option<u32>,
-//     },
-//     /// Returns ProposalListResponse
-//     ReverseProposals {
-//         start_before: Option<u64>,
-//         limit: Option<u32>,
-//     },
-//     /// Returns VoteResponse
-//     Vote { proposal_id: u64, voter: String },
-//     /// Returns VoteListResponse
-//     ListVotes {
-//         proposal_id: u64,
-//         start_after: Option<String>,
-//         limit: Option<u32>,
-//     },
-//     /// Returns VoterInfo
-//     Voter { address: String },
-//     /// Returns VoterListResponse
-//     ListVoters {
-//         start_after: Option<String>,
-//         limit: Option<u32>,
-//     },
+func GetQuorum() Quorum {
+	return quorum
+}
+
+func GetProposal(proposalId uint64) Proposal {
+	if int(proposalId) >= len(proposals) {
+		panic("invalid proposal id")
+	}
+	return proposals[proposalId]
+}
+
+func GetProposals(startAfter uint64, limit uint64) []Proposal {
+	return proposals[startAfter : startAfter+limit]
+}
 
 func Render(path string) string {
 	// if path == "" {
