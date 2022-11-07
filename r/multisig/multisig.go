@@ -1,7 +1,10 @@
 package multisig
 
 import (
+	"fmt"
 	"std"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -20,6 +23,22 @@ const (
 	EXPIRED    ProposalStatus = 3
 	CANCELLED  ProposalStatus = 4
 )
+
+func (s ProposalStatus) String() string {
+	switch s {
+	case PENDING:
+		return "Pending"
+	case TO_EXECUTE:
+		return "ToExecute"
+	case EXECUTED:
+		return "Executed"
+	case EXPIRED:
+		return "Expired"
+	case CANCELLED:
+		return "Cancelled"
+	}
+	return ""
+}
 
 type Proposal struct {
 	Id          uint64         // incremented at every new proposal
@@ -192,17 +211,73 @@ func GetProposals(startAfter uint64, limit uint64) []Proposal {
 }
 
 func Render(path string) string {
-	// if path == "" {
-	// 	text := "# Welcome"
-	// 	if len(Hello) == 0 {
-	// 		return text + "\n"
-	// 	}
-	// 	for _, h := range Hello {
-	// 		text += "\n* " + h
-	// 	}
-	// 	return text
-	// }
-	// Hello = append(Hello, path)
-	// return "# " + hello.World(path)
+	if path == "" {
+		membersText := ``
+		for _, member := range quorum.members {
+			membersText += fmt.Sprintf("- %s\n", member.String())
+		}
+
+		pendingProposals := ``
+		executedProposals := ``
+		cancelledProposals := ``
+
+		for index, proposal := range proposals {
+			switch proposal.status {
+			case PENDING:
+				pendingProposals += fmt.Sprintf("- [%s](https://gnosig.com/proposal/%d)\n", proposal.Title, index+1)
+			case EXECUTED:
+				executedProposals += fmt.Sprintf("- [%s](https://gnosig.com/proposal/%d)\n", proposal.Title, index+1)
+			case CANCELLED:
+				cancelledProposals += fmt.Sprintf("- [%s](https://gnosig.com/proposal/%d)\n", proposal.Title, index+1)
+			}
+		}
+
+		return fmt.Sprintf(`
+# Gnosig setup
+
+Members:
+%s
+
+Minimum approval needed: %d
+
+# Proposals
+
+Pending:
+%s
+
+Executed:
+%s
+
+Cancelled:
+%s`, membersText, quorum.minApproval, pendingProposals, executedProposals, cancelledProposals)
+	}
+
+	subPath := strings.Split(path, "/")
+	switch subPath[0] {
+	case "proposal":
+		if len(subPath) == 1 {
+			panic("no proposal id provided on path")
+		}
+		proposalId, err := strconv.Atoi(subPath[1])
+		if err != nil {
+			panic(err)
+		}
+		proposal := proposals[proposalId]
+
+		statusText := proposal.status.String()
+		approversText := ``
+		for _, approval := range proposal.Approvals {
+			approversText += fmt.Sprintf("- %s\n", approval.address.String())
+		}
+		return fmt.Sprintf(`Status: %s
+Need at least %d approvals
+
+Proposal description:
+%s
+
+Approved by:
+%s`, statusText, quorum.minApproval, proposal.Description, approversText)
+	}
+
 	return ""
 }
