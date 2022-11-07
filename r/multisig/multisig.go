@@ -206,7 +206,7 @@ func GetProposal(proposalId uint64) Proposal {
 	return proposals[proposalId]
 }
 
-func GetProposals(startAfter uint64, limit uint64) []Proposal {
+func GetProposals(startAfter, limit uint64) []Proposal {
 	return proposals[startAfter : startAfter+limit]
 }
 
