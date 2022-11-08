@@ -4,7 +4,7 @@ The goal of the project is to provide multisig functionality in Gnolang.
 
 ## Test execution
 
-Use `gnodev test r/solve --verbose --root-dir ../gno` to run the tests.
+Use `gnodev test r/multisig --verbose --root-dir ../gno` to run the tests.
 
 ## Implementation direction
 
