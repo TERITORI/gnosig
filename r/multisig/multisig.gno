@@ -262,6 +262,9 @@ Cancelled:
 		if err != nil {
 			panic(err)
 		}
+		if len(proposals) <= int(proposalId) {
+			panic("invalid proposal id")
+		}
 		proposal := proposals[proposalId]
 
 		statusText := proposal.status.String()
