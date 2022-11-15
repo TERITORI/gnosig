@@ -46,7 +46,7 @@ type Proposal struct {
 	Description string         // description metadata
 	Expiration  uint64         // expiration timestamp
 	Tx          []Msg          // raw transaction
-	status      ProposalStatus // 0: PENDING | 1: TO_EXECUTE | 2: EXECUTED | 3: EXPIRED
+	Status      ProposalStatus // 0: PENDING | 1: TO_EXECUTE | 2: EXECUTED | 3: EXPIRED
 	Approvals   []Approval     // approvals on the proposal
 }
 
@@ -73,12 +73,7 @@ func isQuorumMember(address std.Address) bool {
 
 // MULTI SIG FUNCTIONS
 func CreateProposal(title, description string, rawTx []Msg, expirationTimestamp uint64) {
-	// assert CallTx call.
-	std.AssertOriginCall()
-	caller := std.GetCallerAt(2)
-	if caller != std.GetOrigCaller() {
-		panic("should not happen") // because std.AssertOrigCall().
-	}
+	caller := std.GetOrigCaller()
 
 	// if sender is not in the current quorum, revert
 	isCallerMultisigMember := isQuorumMember(caller)
@@ -99,18 +94,18 @@ func CreateProposal(title, description string, rawTx []Msg, expirationTimestamp 
 		Description: description,
 		Expiration:  expirationTimestamp,
 		Tx:          rawTx,
-		status:      PENDING,      // 0: PENDING | 1: TO_EXECUTE | 2: EXECUTED | 3: EXPIRED
-		Approvals:   []Approval{}, // approvals on the proposal
+		Status:      PENDING, // 0: PENDING | 1: TO_EXECUTE | 2: EXECUTED | 3: EXPIRED
+		Approvals: []Approval{
+			{
+				address:   caller,
+				timestamp: uint64(time.Now().Unix()),
+			},
+		}, // approvals on the proposal
 	})
 }
 
 func Approve(proposalId uint64, execute bool) {
-	// assert CallTx call.
-	std.AssertOriginCall()
-	caller := std.GetCallerAt(2)
-	if caller != std.GetOrigCaller() {
-		panic("should not happen") // because std.AssertOrigCall().
-	}
+	caller := std.GetOrigCaller()
 
 	// if sender is not in the current quorum, revert
 	isCallerMultisigMember := isQuorumMember(caller)
@@ -131,7 +126,7 @@ func Approve(proposalId uint64, execute bool) {
 
 	// if proposal expiration time is reached, set proposal as EXPIRED
 	if time.Now().Unix() > int64(proposal.Expiration) {
-		proposals[proposalId].status = EXPIRED
+		proposals[proposalId].Status = EXPIRED
 		return
 	}
 
@@ -141,22 +136,17 @@ func Approve(proposalId uint64, execute bool) {
 		timestamp: uint64(time.Now().Unix()),
 	})
 
-	if len(proposal.Approvals) >= int(quorum.minApproval) {
+	if len(proposals[proposalId].Approvals) >= int(quorum.minApproval) {
+		// if current quorum is reached after this vote on the proposal, set proposal to TO_EXECUTE
+		proposals[proposalId].Status = TO_EXECUTE
 		if execute { // if current quorum is reached after this vote on the proposal and execute is true, execute the proposal
 			Execute(proposalId)
-		} else { // if current quorum is reached after this vote on the proposal and execute is false, set proposal to TO_EXECUTE
-			proposals[proposalId].status = TO_EXECUTE
 		}
 	}
 }
 
 func Execute(proposalId uint64) {
-	// assert CallTx call.
-	std.AssertOriginCall()
-	caller := std.GetCallerAt(2)
-	if caller != std.GetOrigCaller() {
-		panic("should not happen") // because std.AssertOrigCall().
-	}
+	caller := std.GetOrigCaller()
 
 	if int(proposalId) >= len(proposals) {
 		panic("invalid proposal id")
@@ -164,7 +154,7 @@ func Execute(proposalId uint64) {
 	proposal := proposals[proposalId]
 
 	// if tx is not TO_EXECUTE, revert
-	if proposal.status != TO_EXECUTE {
+	if proposal.Status != TO_EXECUTE {
 		panic("not an executable proposal")
 	}
 
@@ -176,14 +166,14 @@ func Execute(proposalId uint64) {
 
 	// if expiration time is reached, set proposal as CANCELLED
 	if time.Now().Unix() > int64(proposal.Expiration) {
-		proposals[proposalId].status = CANCELLED
+		proposals[proposalId].Status = CANCELLED
 		return
 	}
 
 	// TODO: Execute an approved tx
 
 	// set proposal to EXECUTED
-	proposals[proposalId].status = EXECUTED
+	proposals[proposalId].Status = EXECUTED
 }
 
 func updateQuorum(addresses []std.Address, minApproval uint64) {
@@ -207,7 +197,11 @@ func GetProposal(proposalId uint64) Proposal {
 }
 
 func GetProposals(startAfter, limit uint64) []Proposal {
-	return proposals[startAfter : startAfter+limit]
+	max := uint64(len(proposals))
+	if startAfter+limit < max {
+		max = startAfter + limit
+	}
+	return proposals[startAfter:max]
 }
 
 func Render(path string) string {
@@ -222,7 +216,7 @@ func Render(path string) string {
 		cancelledProposals := ``
 
 		for index, proposal := range proposals {
-			switch proposal.status {
+			switch proposal.Status {
 			case PENDING:
 				pendingProposals += fmt.Sprintf("- [%s](https://gnosig.com/proposal/%d)\n", proposal.Title, index+1)
 			case EXECUTED:
@@ -267,7 +261,7 @@ Cancelled:
 		}
 		proposal := proposals[proposalId]
 
-		statusText := proposal.status.String()
+		statusText := proposal.Status.String()
 		approversText := ``
 		for _, approval := range proposal.Approvals {
 			approversText += fmt.Sprintf("- %s\n", approval.address.String())

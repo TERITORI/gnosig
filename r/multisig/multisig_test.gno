@@ -55,51 +55,83 @@ Cancelled:
 }
 
 func TestCreateProposal(t *testing.T) {
-	// set caller before contract call
+	quorum = Quorum{
+		members:     quorumMembers,
+		minApproval: 2,
+	}
+
+	// check not multisig member call
 	std.TestSetOrigCaller(caller)
-	// TODO: check not multisig member call
-	// TODO: check already expired timestmap
-	// TODO: check proposal addition check
-	CreateProposal("title", "description", []Msg{}, uint64(time.Now().Unix()))
+	assertPanic(t, func() { CreateProposal("title", "description", []Msg{}, uint64(time.Now().Unix())+1000) })
+
+	// check already expired timestmap
+	std.TestSetOrigCaller(caller1)
+	assertPanic(t, func() { CreateProposal("title", "description", []Msg{}, uint64(time.Now().Unix())-1) })
+
+	// check proposal addition check
+	std.TestSetOrigCaller(caller1)
+	CreateProposal("title", "description", []Msg{}, uint64(time.Now().Unix())+1000)
 	proposals := GetProposals(0, 10)
 	if len(proposals) != 1 {
 		t.Errorf("Expected number of proposals %d got %d", 1, len(proposals))
 	}
 }
 
-// func TestApprove(t *testing.T) {
-// 	// set caller before contract call
-// 	std.TestSetOrigCaller(caller)
-// 	// TODO: check not multisig member call
-// 	// TODO: invalid proposal id check
-// 	// TODO: approvals increase check
-// 	Approve(0, false)
-// 	// TODO: already approved proposal check
-// 	// TODO: already expired proposal check
-// }
+func TestApprove(t *testing.T) {
+	// check not multisig member call
+	std.TestSetOrigCaller(caller)
+	assertPanic(t, func() { Approve(0, false) })
 
-// func TestExecute(t *testing.T) {
-// 	// set caller before contract call
-// 	std.TestSetOrigCaller(caller)
-// 	// TODO: proposal id check
-// 	// TODO: proposal status check if TO_EXECUTE
-// 	// TODO: check caller is multisig member
-// 	// TODO: check status update to EXECTED
-// 	Execute(0)
-// 	// TODO: already expired proposal check
-// }
+	// invalid proposal id check
+	std.TestSetOrigCaller(caller2)
+	assertPanic(t, func() { Approve(1, false) })
 
-// func TestUpdateQuorum(t *testing.T) {
-// 	// set caller before contract call
-// 	std.TestSetOrigCaller(caller)
-// 	updateQuorum(quorumMembers, 2)
-// 	quorum := GetQuorum()
-// 	// TODO: check members update
-// 	// TODO: check minApproval update
-// }
+	std.TestSetOrigCaller(caller2)
+	Approve(0, false)
 
-// func TestGetProposal(t *testing.T) {
-// 	quorum := GetProposal(0)
-// 	// TODO: invalid proposal id check
-// 	// TODO: correct proposal response check
-// }
+	// approvals increase check
+	proposal := GetProposal(0)
+	if len(proposal.Approvals) != 2 {
+		t.Errorf("Expected number of approvals %d got %d", 2, len(proposals))
+	}
+	if proposal.Status != TO_EXECUTE {
+		t.Errorf("Expected proposal status TO_EXECUTE got %d", proposal.Status)
+	}
+
+	// already approved proposal check
+	assertPanic(t, func() { Approve(0, false) })
+}
+
+func TestExecute(t *testing.T) {
+	// check caller is multisig member
+	std.TestSetOrigCaller(caller)
+	assertPanic(t, func() { Execute(0) })
+
+	// proposal id check
+	std.TestSetOrigCaller(caller2)
+	assertPanic(t, func() { Execute(1) })
+
+	// valid execution
+	std.TestSetOrigCaller(caller2)
+	Execute(0)
+
+	// check valid execution result
+	proposal := GetProposal(0)
+	if proposal.Status != EXECUTED {
+		t.Errorf("Expected proposal status EXECUTED got %d", proposal.Status)
+	}
+}
+
+func TestUpdateQuorum(t *testing.T) {
+	// set caller before contract call
+	std.TestSetOrigCaller(caller)
+	updateQuorum(quorumMembers, 3)
+	quorum := GetQuorum()
+
+	if len(quorum.members) != 3 {
+		t.Errorf("Expected quorum members %d got %d", 3, len(quorum.members))
+	}
+	if quorum.minApproval != 3 {
+		t.Errorf("Expected quorum minApproval %d got %d", 3, quorum.minApproval)
+	}
+}
