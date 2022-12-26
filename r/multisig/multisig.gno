@@ -2,6 +2,7 @@ package multisig
 
 import (
 	"fmt"
+	"gno.land/r/gnoland/blog"
 	"std"
 	"strconv"
 	"strings"
@@ -171,6 +172,7 @@ func Execute(proposalId uint64) {
 	}
 
 	// TODO: Execute an approved tx
+	blog.AddComment("slug", "comment")
 
 	// set proposal to EXECUTED
 	proposals[proposalId].Status = EXECUTED
